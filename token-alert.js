@@ -3,7 +3,7 @@ const axios = require('axios');
 const fs = require('fs');
 
 // Hardcoded configuration
-const TARGET_TICKER = 'kenny';
+const TARGET_TICKER = 'retard';
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
 const DB_FILE = 'found_tokens.json';
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1349212319732863006/wEIh1zUOEpBOjbZQ9zNF0cX9ZTmCw4d4bMcJnJGN41T19lUN4ZWUaEZFxwEfnDuZx18I';
