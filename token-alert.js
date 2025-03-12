@@ -3,10 +3,11 @@ const axios = require('axios');
 const fs = require('fs');
 
 // Hardcoded configuration
-const TARGET_TICKER = 'retard';
+const TARGET_TICKER = 'reba';
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
 const DB_FILE = 'found_tokens.json';
-const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1349212319732863006/wEIh1zUOEpBOjbZQ9zNF0cX9ZTmCw4d4bMcJnJGN41T19lUN4ZWUaEZFxwEfnDuZx18I';
+const TELEGRAM_BOT_TOKEN = '7784877051:AAEqpKsot3s0CimoUkWsiO5FvfjSlkdiYRA'; 
+const TELEGRAM_CHAT_ID = '@pleasework1231'; // Your public channel username
 
 // Initialize token storage
 let foundTokens = {};
@@ -14,69 +15,43 @@ if (fs.existsSync(DB_FILE)) {
   foundTokens = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
 }
 
-// Function to send Discord alert
-async function sendDiscordAlert(token) {
+// Function to send Telegram alert
+async function sendTelegramAlert(token) {
   try {
-    // Create Discord embed message
-    const embed = {
-      title: `🚨 New Token Alert: $${token.symbol || token.name}`,
-      color: 0x00ff00, // Green color
-      fields: [
-        {
-          name: 'Token Symbol',
-          value: `$${token.symbol || 'Unknown'}`,
-          inline: true
-        },
-        {
-          name: 'Token Name',
-          value: token.name || 'Unknown',
-          inline: true
-        },
-        {
-          name: 'Token Address',
-          value: token.address || token.mint,
-          inline: false
-        },
-        {
-          name: 'Found At',
-          value: new Date().toLocaleString(),
-          inline: false
-        },
-        {
-          name: 'Explorer Links',
-          value: `[View on Solana Explorer](https://explorer.solana.com/address/${token.address || token.mint})\n[View on Solscan](https://solscan.io/token/${token.address || token.mint})`,
-          inline: false
-        }
-      ],
-      footer: {
-        text: 'Solana Token Monitor'
-      },
-      timestamp: new Date()
-    };
+    // Create Telegram message with markdown formatting
+    const message = `
+🚨 *New Token Alert: $${token.symbol || token.name}* 🚨
+
+*Token Symbol:* $${token.symbol || 'Unknown'}
+*Token Name:* ${token.name || 'Unknown'}
+*Token Address:* \`${token.address || token.mint}\`
+*Found At:* ${new Date().toLocaleString()}
+
+*Explorer Links:*
+[View on Solana Explorer](https://explorer.solana.com/address/${token.address || token.mint})
+[View on Solscan](https://solscan.io/token/${token.address || token.mint})
+`;
 
     // Add freeze authority warning if present
-    if (token.freeze_authority) {
-      embed.fields.push({
-        name: '⚠️ Warning',
-        value: 'This token has a freeze authority which means the creator can freeze transfers',
-        inline: false
-      });
-    }
+    const warningMessage = token.freeze_authority ? 
+      "\n⚠️ *Warning:* This token has a freeze authority which means the creator can freeze transfers" : "";
 
-    // Send to Discord webhook
-    const response = await axios.post(DISCORD_WEBHOOK_URL, {
-      content: `🔔 **${TARGET_TICKER.toUpperCase()} TOKEN DETECTED!** 🔔`,
-      embeds: [embed],
-      username: 'Solana Token Monitor'
+    // Send to Telegram
+    const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const response = await axios.post(telegramApiUrl, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message + warningMessage,
+      parse_mode: 'Markdown',
+      disable_web_page_preview: false
     });
     
-    if (response.status === 204) {
-      console.log('Discord alert sent successfully!');
+    if (response.data && response.data.ok) {
+      console.log('Telegram alert sent successfully!');
     } else {
-      console.log(`Discord API responded with status: ${response.status}`);
+      console.log(`Telegram API responded with: ${JSON.stringify(response.data)}`);
     }
   } catch (error) {
-    console.error('Error sending Discord alert:', error.message);
+    console.error('Error sending Telegram alert:', error.message);
   }
 }
 
@@ -120,8 +95,8 @@ async function checkJupiterNewTokens() {
         // Save updated token list
         fs.writeFileSync(DB_FILE, JSON.stringify(foundTokens, null, 2));
         
-        // Send Discord alert
-        await sendDiscordAlert(token);
+        // Send Telegram alert
+        await sendTelegramAlert(token);
       }
     }
   } catch (error) {
@@ -132,17 +107,21 @@ async function checkJupiterNewTokens() {
 // Start the monitoring process
 console.log(`Starting to monitor for $${TARGET_TICKER} token on Solana using Jupiter API...`);
 console.log(`Checking every ${CHECK_INTERVAL / 1000} seconds`);
-console.log(`Discord alerts will be sent to the configured webhook`);
+console.log(`Telegram alerts will be sent to chat ID: ${TELEGRAM_CHAT_ID}`);
 
 // Send a test alert on startup to confirm webhook is working
 (async () => {
   try {
-    console.log('Sending test Discord alert...');
-    await axios.post(DISCORD_WEBHOOK_URL, {
-      content: `🔔 **Token Monitor Started** - Watching for ${TARGET_TICKER.toUpperCase()} on Solana using Jupiter Token API`,
-      username: 'Solana Token Monitor'
+    console.log('Sending test Telegram alert...');
+    
+    const telegramApiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    await axios.post(telegramApiUrl, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: `🔔 *Token Monitor Started* - Watching for ${TARGET_TICKER.toUpperCase()} on Solana using Jupiter Token API`,
+      parse_mode: 'Markdown'
     });
-    console.log('Test alert sent! Check your Discord channel.');
+    
+    console.log('Test alert sent! Check your Telegram chat.');
     
     // Run check immediately
     await checkJupiterNewTokens();
@@ -159,7 +138,7 @@ console.log(`Discord alerts will be sent to the configured webhook`);
       process.exit();
     });
   } catch (error) {
-    console.error('Error sending test Discord alert:', error.message);
-    console.log('Please verify your Discord webhook URL is correct.');
+    console.error('Error sending test Telegram alert:', error.message);
+    console.log('Please verify your Telegram bot token and chat ID are correct.');
   }
 })();
